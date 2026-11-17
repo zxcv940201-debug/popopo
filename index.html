@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>《真理之下 Beneath the Truth》— 維多利亞哥德懸疑偵探開放式世界</title>
+
+  <!-- Google Fonts: Noto Serif TC & Cinzel -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Noto+Serif+TC:wght@400;600;700;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0D0C11',
+            parchment: '#EAE0CE',
+            brass: '#C8A055',
+            wax: '#8B1E24'
+          },
+          fontFamily: {
+            serif: ['"Noto Serif TC"', 'Georgia', 'serif'],
+            display: ['"Cinzel"', '"Noto Serif TC"', 'serif']
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* 自訂維多利亞滾動條與雕花微調 */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0D0C11;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #5c4623;
+      border-radius: 4px;
+      border: 1px solid #C8A055;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #8B1E24;
+    }
+    .parchment-texture {
+      background-color: #EAE0CE;
+      background-image: radial-gradient(rgba(139, 115, 85, 0.14) 1px, transparent 0),
+                        radial-gradient(rgba(139, 30, 36, 0.05) 1px, transparent 0);
+      background-size: 24px 24px;
+      background-position: 0 0, 12px 12px;
+    }
+  </style>
+</head>
+<body class="bg-[#0D0C11] text-[#EAE0CE] font-serif antialiased overflow-x-hidden">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ------------------------------------------------------------------------
+    // Lucide 圖示封裝組件
+    // ------------------------------------------------------------------------
+    const Icon = ({ name, className = "w-4 h-4" }) => {
+      const spanRef = useRef(null);
+      useEffect(() => {
+        if (spanRef.current && window.lucide && window.lucide.icons[name]) {
+          const el = window.lucide.createElement(window.lucide.icons[name]);
+          el.setAttribute('class', className);
+          spanRef.current.innerHTML = '';
+          spanRef.current.appendChild(el);
+        }
+      }, [name, className]);
+      return <span ref={spanRef} className="inline-flex items-center justify-center shrink-0" />;
+    };
+
+    // ------------------------------------------------------------------------
+    // 1. 世界觀核心資料常數
+    // ------------------------------------------------------------------------
+    const WORLD_OVERVIEW_CARDS = [
+      {
+        code: '01 // WORLD SETTING',
+        title: '1888年・維多利亞霧都倫敦',
+        normal: '煤氣燈與蒸汽齒輪轟鳴的工業帝國心臟，泰晤士河終年籠罩在厚重的黃綠色濃霧與鐘聲之中。',
+        alter: '濃霧實為「記憶塵埃」的具象化，每當午夜鐘響，整座倫敦便會折疊進鏡像裡世界。',
+        icon: 'Compass'
+      },
+      {
+        code: '02 // OPEN WORLD CASE',
+        title: '七日無面失蹤案',
+        normal: '七位上流名流在七日內離奇失蹤，現場僅留下蓋有黑鴉火漆印章的空白邀請函與一枚琉璃紐扣。',
+        alter: '失蹤者並未死亡，而是被剝奪了面孔與過往，轉化為莊園劇場裡的永生提線人偶。',
+        icon: 'FileText'
+      },
+      {
+        code: '03 // DUAL DIMENSION',
+        title: '心眼透視與火漆契約',
+        normal: '自由探索開放式霧都地標、調閱關鍵角色立繪卷宗與演繹日記，拼湊七日案件全貌。',
+        alter: '開啟「心眼透視」可看穿物體殘留的因果紅線，但每一次窺探都將動搖偵探自身的記憶。',
+        icon: 'Eye'
+      }
+    ];
+
+    const LONDON_LOCATIONS = [
+      {
+        id: 'baker',
+        name: '貝克街 221B 事務所',
+        en: '221B BAKER STREET',
+        coords: { x: 24, y: 28 },
+        year: '1888.11.01 // 案件起點',
+        danger: '理智穩定區',
+        normalSummary: '堆滿泛黃卷宗、化學試劑與黃銅星象儀的閣樓事務所，壁爐火光終年不熄，是偵探整理紅線推理牆的據點。',
+        alterSummary: '【裡世界異變】壁紙剝落後露出密密麻麻的血紅刻痕，鏡中倒影會比本體慢半拍動作，書桌抽屜深處傳來懷錶倒轉聲。',
+        clue: '桌角暗格裡鎖著一封沒有寄件人姓名的黑鴉火漆委託信。'
+      },
+      {
+        id: 'whitechapel',
+        name: '白教堂迷霧街區',
+        en: 'WHITECHAPEL FOG ALLEY',
+        coords: { x: 48, y: 22 },
+        year: '1888.11.03 // 第一起失蹤',
+        danger: '高度迷霧區',
+        normalSummary: '濕滑的鵝卵石窄巷與閃爍不定的煤氣路燈，夜巡警察在此發現了首位失蹤貴族留下的破碎單片眼鏡與空馬車。',
+        alterSummary: '【裡世界異變】濃霧中徘徊著沒有五官的灰色剪影，踩到積水會聽見七天前失蹤者的求救低語。',
+        clue: '暗巷磚縫中嵌著一枚刻有「IV-00」編號的蒼藍琉璃紐扣。'
+      },
+      {
+        id: 'museum',
+        name: '大英博物館地下密室',
+        en: 'BRITISH MUSEUM VAULT',
+        coords: { x: 75, y: 34 },
+        year: '1888.11.05 // 禁忌典籍',
+        danger: '精神污染區',
+        normalSummary: '館藏中世紀煉金術手稿與古埃及人偶面具的封閉展廳，只有持有皇家特許令的學者與受邀偵探方能進入。',
+        alterSummary: '【裡世界異變】玻璃展櫃內的古老木偶在午夜會集體轉頭凝視訪客，手稿墨跡自動重組為預言詩篇。',
+        clue: '《靈魂縫合術》殘頁記載了以火漆封印記憶的禁忌儀式。'
+      },
+      {
+        id: 'clocktower',
+        name: '黑水河廢棄鐘樓',
+        en: 'BLACKWATER BELFRY',
+        coords: { x: 65, y: 74 },
+        year: '1888.11.06 // 時間樞紐',
+        danger: '極度危險區',
+        normalSummary: '矗立於泰晤士河畔的哥德式巨型鐘樓，生鏽的黃銅齒輪日夜轟鳴，守望者「白夜」常年駐守於頂層尖塔。',
+        alterSummary: '【裡世界異變】巨型鐘擺呈現逆時針擺動，每一次鐘響都會抽走周遭生物一段珍貴的童年記憶。',
+        clue: '鐘盤背面刻著與亞瑟懷錶完全一致的精密星象齒輪組。'
+      },
+      {
+        id: 'orphanage',
+        name: '聖瑪麗慈善孤兒院',
+        en: 'ST. MARY ORPHANAGE',
+        coords: { x: 27, y: 72 },
+        year: '1888.11.07 // 最初的劇場',
+        danger: '核心真相區',
+        normalSummary: '位於倫敦南郊荒原的紅磚修道院建築，十年前曾發生一場神秘大火，如今已成為常春藤纏繞的寂靜廢墟。',
+        alterSummary: '【裡世界異變】廢墟在心眼透視下恢復成華麗的維多利亞人偶劇院，舞台中央擺著四張絲絨空王座。',
+        clue: '院長室灰燼中保存著四位主角幼年時期的合照——所有人的眼睛都被塗黑。'
+      }
+    ];
+
+    const CHARACTERS = [
+      {
+        id: 'arthur',
+        code: 'DOSSIER #01 // INFERENCE',
+        roleTag: '「推理先生」',
+        name: '亞瑟·柯林斯',
+        enName: 'ARTHUR COLLINS',
+        title: '貝克街失憶偵探',
+        relic: '逆時黃銅懷錶 & 單片光學鏡',
+        quoteNormal: '「迷霧會遮蔽雙眼，但齒輪轉動的軌跡永遠不會說謊。」',
+        quoteAlter: '「如果我親手連起的紅線，最終指向的兇手正是我自己呢？」',
+        bioNormal: '居住在貝克街 221B 的私家偵探，三個月前於泰晤士河大火中倖存後喪失了過往記憶。憑藉敏銳的邏輯演繹與左眼的特殊單片鏡，受雇調查震驚倫敦的「七日無面失蹤案」。',
+        bioAlter: '【裡世界真相】他的風衣內襯縫著編號「NO.00」的實驗體標籤，左眼紐扣後方封印著他親手設計整座人偶劇場的原始記憶。',
+        stats: { deduction: 96, perception: 88, sanity: 62, stealth: 78, alchemy: 55 },
+        diaries: [
+          { step: '演繹日記 I', title: '閣樓壁爐的焦痕', text: '11月1日，我在壁爐灰燼裡找到半張燒焦的船票，日期正是我失去記憶的那天。為什麼我的袖口會沾著黑玫瑰花粉？' },
+          { step: '演繹日記 II', title: '單片鏡中的裂紋', text: '11月4日，透過單片鏡檢視失蹤現場的紐扣時，我聽見了一個與我一模一樣的聲音在耳邊低語：「歡迎回家」。' },
+          { step: '演繹日記 III', title: '第零號棋子', text: '11月7日，當所有線索匯聚於聖瑪麗孤兒院，我終於看清火漆請柬上的受邀人名單——第一個名字就是亞瑟·柯林斯。' }
+        ],
+        colors: { coat: '#242936', trim: '#C8A055', hair: '#4A3525', eyeL: '#38BDF8', eyeR: '#E6C88A', alterCoat: '#4A0E17' }
+      },
+      {
+        id: 'emma',
+        code: 'DOSSIER #02 // TRUTH',
+        roleTag: '「真相小姐」',
+        name: '艾瑪·華生',
+        enName: 'EMMA WATSON',
+        title: '真相記錄者與煉金記者',
+        relic: '銀雕機械相機 & 翡翠火漆印章',
+        quoteNormal: '「快門按下的瞬間，光影會替沉默的死者開口說話。」',
+        quoteAlter: '「我記錄下所有人的真相，唯獨不敢將鏡頭對準自己的倒影。」',
+        bioNormal: '《倫敦紀事報》首席調查記者兼皇家植物學會成員，總帶著一頂綴有乾燥玫瑰的維多利亞禮帽，使用特製銀版機械相機協助亞瑟拍攝現場隱藏線索。',
+        bioAlter: '【裡世界真相】她的機械相機底片塗有煉金顯影液，能直接拍攝出人類靈魂的縫線；她暗中在亞瑟紅茶裡滴入鎮定花露，只為延緩他覺醒的痛苦。',
+        stats: { deduction: 84, perception: 95, sanity: 82, stealth: 80, alchemy: 94 },
+        diaries: [
+          { step: '演繹日記 I', title: '顯影液裡的幻影', text: '11月2日，沖洗白教堂巷口的照片時，底片上竟多出了一位撐著黑傘的紳士，而當時現場明明只有我與亞瑟。' },
+          { step: '演繹日記 II', title: '守護者的代價', text: '11月5日，亞瑟的頭痛越來越頻繁了。我必須在 D.M 伯爵開啟拍賣會前，調配出能中和記憶吞噬的最後一瓶解藥。' },
+          { step: '演繹日記 III', title: '最後一張底片', text: '11月7日，我把火漆印章交給了亞瑟。無論結局如何，這張記錄著我們並肩作戰的照片都會留在歷史裡。' }
+        ],
+        colors: { coat: '#1B383A', trim: '#E6C88A', hair: '#8B4526', eyeL: '#34D399', eyeR: '#E6C88A', alterCoat: '#261E35' }
+      },
+      {
+        id: 'dm',
+        code: 'DOSSIER #03 // MASTERMIND',
+        roleTag: '「貴族贊助人」',
+        name: 'D.M 伯爵',
+        enName: 'LORD D.M.',
+        title: '黑鴉拍賣行主人',
+        relic: '烏鴉喙半面具 & 血晶玫瑰手杖',
+        quoteNormal: '「世間萬物皆有價碼，包括你遺失的那段靈魂，偵探先生。」',
+        quoteAlter: '「多麼精彩的推理！現在，請走上屬於你的最終拍賣台吧。」',
+        bioNormal: '掌控倫敦半數地下古董交易的神祕大貴族，身著象牙白燕尾禮服，佩戴暗金烏鴉半面具。他主動資助亞瑟的偵探事務所，聲稱在尋找家族失竊的聖物。',
+        bioAlter: '【裡世界真相】「七日無面失蹤案」的幕後編劇，他將整座倫敦化作大型演繹劇場，只為測試亞瑟能否在失去記憶的情況下再次親手選擇「真相」。',
+        stats: { deduction: 98, perception: 92, sanity: 100, stealth: 90, alchemy: 89 },
+        diaries: [
+          { step: '演繹日記 I', title: '拍賣目錄第零號', text: '11月1日，賓客們都以為壓軸拍品是中世紀王冠，殊不知真正被擺上展示台的，是那位自以為在調查真相的偵探。' },
+          { step: '演繹日記 II', title: '完美的人偶工藝', text: '11月4日，即使被縫上了紐扣雙眼，他依然執著於尋找正義。這份令人愉悅的悖論，正是我最珍視的藝術品。' },
+          { step: '演繹日記 III', title: '謝幕的掌聲', text: '11月7日，紅線已經全部連通。無論他選擇摧毀劇場還是繼承王座，這場演出都已達到完美。' }
+        ],
+        colors: { coat: '#DFD8C8', trim: '#8B1E24', hair: '#1A1721', eyeL: '#EF4444', eyeR: '#C8A055', alterCoat: '#120F17' }
+      },
+      {
+        id: 'whitenight',
+        code: 'DOSSIER #04 // WATCHER',
+        roleTag: '「鐘樓守望者」',
+        name: '白夜',
+        enName: 'WHITE NIGHT',
+        title: '黑水河時間守護者',
+        relic: '蒼白靈火提燈 & 黃銅齒輪鑰匙',
+        quoteNormal: '「烏鴉只為迷途者引路，而我的提燈只照亮尚未熄滅的執念。」',
+        quoteAlter: '「午夜十二下鐘聲響起時，所有越界的靈魂都必須回歸籠中。」',
+        bioNormal: '常年駐守在黑水河巨型鐘樓頂端的銀髮青年，身披星象刺繡黑袍，手持燃燒蒼藍色冷焰的齒輪提燈，在黑市中以「記憶碎片」為貨幣出售機密情報。',
+        bioAlter: '【裡世界真相】他曾是十年前聖瑪麗孤兒院的倖存者，與時間齒輪簽訂契約成為守望者，負責在表裡世界崩潰前敲響重置一切的喪鐘。',
+        stats: { deduction: 86, perception: 99, sanity: 50, stealth: 96, alchemy: 85 },
+        diaries: [
+          { step: '演繹日記 I', title: '尖頂的齒輪聲', text: '11月2日，濃霧比十年前更濃了。D.M 伯爵提前轉動了命運發條，鐘樓底部的封印正在鬆動。' },
+          { step: '演繹日記 II', title: '記憶的等價交換', text: '11月5日，艾瑪小姐用她的一段童年回憶，換走了關於逆時懷錶的製造圖紙。真是個愚蠢又溫柔的人。' },
+          { step: '演繹日記 III', title: '守望者的抉擇', text: '11月7日，若亞瑟無法在黎明前破解所有紅線，我將按照古老約定，親手熄滅貝克街的那盞燈。' }
+        ],
+        colors: { coat: '#181926', trim: '#38BDF8', hair: '#E2E8F0', eyeL: '#38BDF8', eyeR: '#94A3B8', alterCoat: '#080D1A' }
+      }
+    ];
+
+    const STORY_CHAPTERS = [
+      {
+        num: 'PROLOGUE',
+        title: '序章：雨夜的火漆委託信',
+        date: '1888年11月1日 23:45',
+        location: '貝克街 221B 事務所',
+        normalText: '暴雨敲打著維多利亞式彩繪玻璃窗，一封蓋有黑鴉與天秤火漆印章的黑色信件滑入門縫。信紙上沒有署名，只寫著：「七日之內，七位名流將失去面孔；若想找回你遺失的五年，請前往白教堂迷霧深處。」',
+        alterText: '【心眼顯影】信紙背面浮現出你自己的筆跡：「不要相信鏡子裡的人，亞瑟——這封信是你親手寄給三個月後的自己的。」',
+        clueTag: '獲得關鍵證物：編號 IV-1888 火漆邀請函'
+      },
+      {
+        num: 'CHAPTER I',
+        title: '第一章：消失的午夜鐘聲',
+        date: '1888年11月3日 02:15',
+        location: '白教堂迷霧街區 & 黑水河鐘樓',
+        normalText: '首位失蹤者赫胥黎爵士在反鎖的馬車內憑空蒸發，車廂絲絨座椅上整齊擺放著一具身穿同款禮服、雙眼縫著琉璃紐扣的等身人偶。與此同時，黑水河鐘樓的巨鐘在午夜少敲了一聲。',
+        alterText: '【心眼顯影】人偶胸腔內傳來微弱的心跳聲——失蹤者並沒有離開馬車，他就是那具人偶本身。',
+        clueTag: '獲得關鍵證物：逆時停止於 11:58 的黃銅懷錶'
+      },
+      {
+        num: 'CHAPTER II',
+        title: '第二章：人偶工坊的因果紅線',
+        date: '1888年11月5日 19:30',
+        location: '大英博物館密室 & 黑鴉拍賣行',
+        normalText: '艾瑪透過銀版機械相機拍下了拍賣行地下室的驚人畫面：無數條血紅色絲線從天花板的巨型星象儀垂落，連接著每一位出席貴族的指尖。D.M 伯爵微笑著宣布：「今晚的壓軸拍品，是真理本身。」',
+        alterText: '【心眼顯影】所有紅線的最終匯聚點並不在拍賣台，而是穿透了整座倫敦地底，緊緊纏繞在貝克街偵探事務所的書桌上。',
+        clueTag: '獲得關鍵證物：翡翠迷霧顯影藥劑 & 莊園藍圖'
+      },
+      {
+        num: 'FINAL CHAPTER',
+        title: '終章：真理之下的代價',
+        date: '1888年11月7日 23:59',
+        location: '聖瑪麗慈善孤兒院遺跡',
+        normalText: '濃霧散去，十年前焚毀的聖瑪麗孤兒院在月光下顯露出華麗的哥德劇院真容。四位調查者齊聚舞台中央，所有的演繹日記碎片終於拼湊完整——在火漆印章落下之前，你必須做出最終裁決。',
+        alterText: '【心眼顯影】「當所有表象皆為謊言，唯有人偶的縫線記得真實。」你舉起火漆印章，準備為這場百年棋局蓋下最終印記。',
+        clueTag: '解鎖最終試煉：真理裁決儀式'
+      }
+    ];
+
+    // ------------------------------------------------------------------------
+    // 2. 維多利亞哥德人偶 SVG 立繪組件 (支援表象與裡世界雙形態)
+    // ------------------------------------------------------------------------
+    const GothicDollPortrait = ({ char, isAlter }) => {
+      const c = char.colors;
+      const coatFill = isAlter ? c.alterCoat : c.coat;
+      const eyeColor = isAlter ? '#FF2A4B' : c.eyeL;
+      const ringColor = isAlter ? '#8B1E24' : c.trim;
+
+      return (
+        <svg viewBox="0 0 320 360" className="w-full max-w-[300px] h-auto mx-auto drop-shadow-[0_22px_30px_rgba(0,0,0,0.85)] select-none">
+          <defs>
+            <radialGradient id={`aura-${char.id}`} cx="50%" cy="45%" r="50%">
+              <stop offset="0%" stopColor={ringColor} stopOpacity="0.48" />
+              <stop offset="100%" stopColor={ringColor} stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id={`coat-${char.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={coatFill} />
+              <stop offset="100%" stopColor="#0D0C11" />
+            </linearGradient>
+          </defs>
+
+          {/* 背後星象光環 */}
+          <circle cx="160" cy="165" r="135" fill={`url(#aura-${char.id})`} />
+          <circle cx="160" cy="165" r="115" fill="none" stroke={ringColor} strokeWidth="1.2" strokeDasharray="6 4" opacity="0.75" />
+          <circle cx="160" cy="165" r="95" fill="none" stroke={ringColor} strokeWidth="0.8" opacity="0.45" />
+
+          {/* 白夜專屬星象長披風 */}
+          {char.id === 'whitenight' && (
+            <path d="M75 135 Q160 40 245 135 L265 320 L55 320 Z" fill="#111019" stroke={c.trim} strokeWidth="1.2" />
+          )}
+
+          {/* 維多利亞雙排扣大衣 / 禮服軀幹 */}
+          <path
+            d="M84 345 L100 220 Q160 198 220 220 L236 345 Z"
+            fill={`url(#coat-${char.id})`}
+            stroke={c.trim}
+            strokeWidth="2"
+          />
+          {/* 內襯馬甲與領結 */}
+          <polygon points="160,210 132,315 188,315" fill="#15131C" stroke={c.trim} strokeWidth="1" />
+          <path d="M144 210 L160 228 L176 210 L169 245 L151 245 Z" fill="#EAE0CE" />
+          <circle cx="160" cy="224" r="6" fill="#8B1E24" stroke={c.trim} strokeWidth="1.3" />
+
+          {/* 懷錶金鏈與雙排紐扣 */}
+          <path d="M134 260 Q160 282 186 260" fill="none" stroke={c.trim} strokeWidth="1.8" strokeDasharray="3 2" />
+          <circle cx="122" cy="255" r="3.5" fill={c.trim} />
+          <circle cx="198" cy="255" r="3.5" fill={c.trim} />
+          <circle cx="118" cy="285" r="3.5" fill={c.trim} />
+          <circle cx="202" cy="285" r="3.5" fill={c.trim} />
+
+          {/* 人偶球形關節頸部 */}
+          <rect x="148" y="184" width="24" height="28" rx="8" fill="#DFD4C2" stroke="#9C8B74" strokeWidth="1.2" />
+          <line x1="148" y1="198" x2="172" y2="198" stroke="#7A6A56" strokeWidth="1.4" />
+
+          {/* 蒼白瓷偶臉部輪廓 */}
+          <path
+            d="M112 130 Q112 190 160 194 Q208 190 208 130 Q208 88 160 88 Q112 88 112 130 Z"
+            fill="#EAE0CE"
+            stroke="#B6A58C"
+            strokeWidth="1.8"
+          />
+
+          {/* 臉部人偶縫線細節 */}
+          <g stroke={isAlter ? '#8B1E24' : '#6D5C4B'} strokeWidth="1.4" strokeLinecap="round">
+            <path d="M120 165 L133 170" />
+            <path d="M123 161 L121 171" />
+            <path d="M128 163 L126 173" />
+            {isAlter && (
+              <>
+                <path d="M187 168 L200 163" />
+                <path d="M191 162 L193 172" />
+                <path d="M196 160 L198 170" />
+              </>
+            )}
+          </g>
+
+          {/* 髮型層次 */}
+          <path
+            d="M108 136 Q104 82 160 78 Q216 82 212 136 Q200 108 182 122 Q168 100 152 124 Q134 104 118 124 Z"
+            fill={c.hair}
+          />
+
+          {/* 十字縫線紐扣雙眼 */}
+          <g transform="translate(139, 142)">
+            <circle cx="0" cy="0" r="12.5" fill="#121017" stroke={eyeColor} strokeWidth="2.2" />
+            <circle cx="0" cy="0" r="9" fill="none" stroke={eyeColor} strokeWidth="0.9" strokeDasharray="2 2" />
+            <line x1="-4.5" y1="-4.5" x2="4.5" y2="4.5" stroke={eyeColor} strokeWidth="2.2" strokeLinecap="round" />
+            <line x1="4.5" y1="-4.5" x2="-4.5" y2="4.5" stroke={eyeColor} strokeWidth="2.2" strokeLinecap="round" />
+          </g>
+          <g transform="translate(181, 142)">
+            <circle cx="0" cy="0" r="12.5" fill="#121017" stroke={isAlter ? '#FF2A4B' : c.eyeR} strokeWidth="2.2" />
+            <circle cx="0" cy="0" r="9" fill="none" stroke={isAlter ? '#FF2A4B' : c.eyeR} strokeWidth="0.9" strokeDasharray="2 2" />
+            <line x1="-4.5" y1="-4.5" x2="4.5" y2="4.5" stroke={isAlter ? '#FF2A4B' : c.eyeR} strokeWidth="2.2" strokeLinecap="round" />
+            <line x1="4.5" y1="-4.5" x2="-4.5" y2="4.5" stroke={isAlter ? '#FF2A4B' : c.eyeR} strokeWidth="2.2" strokeLinecap="round" />
+          </g>
+
+          {/* 嘴部神態 */}
+          {isAlter ? (
+            <path d="M146 175 Q160 185 174 175" fill="none" stroke="#8B1E24" strokeWidth="2.4" strokeLinecap="round" />
+          ) : (
+            <line x1="150" y1="176" x2="170" y2="176" stroke="#5A4A3A" strokeWidth="2" strokeLinecap="round" />
+          )}
+
+          {/* 角色專屬頭飾與信物 */}
+          {char.id === 'arthur' && (
+            <>
+              <path d="M100 96 Q160 64 220 96 L234 108 Q160 88 86 108 Z" fill="#1D222B" stroke={c.trim} strokeWidth="1.6" />
+              <g transform="translate(222, 248) rotate(-18)">
+                <circle cx="0" cy="0" r="26" fill="rgba(56,189,248,0.2)" stroke={c.trim} strokeWidth="4.5" />
+                <circle cx="0" cy="0" r="20" fill="none" stroke="#FFFFFF" strokeOpacity="0.45" strokeWidth="1" />
+                <rect x="-3.5" y="26" width="7" height="38" rx="2" fill="#5A3821" stroke={c.trim} strokeWidth="1.2" />
+              </g>
+            </>
+          )}
+
+          {char.id === 'emma' && (
+            <>
+              <ellipse cx="160" cy="90" rx="80" ry="19" fill="#162A2C" stroke={c.trim} strokeWidth="1.6" />
+              <path d="M110 88 Q160 54 210 88 Z" fill="#223E42" stroke={c.trim} strokeWidth="1.3" />
+              <circle cx="202" cy="84" r="10" fill="#8B1E24" />
+              <circle cx="214" cy="88" r="7" fill="#E6C88A" />
+              <g transform="translate(96, 255)">
+                <rect x="-22" y="-16" width="44" height="32" rx="4" fill="#2A2438" stroke={c.trim} strokeWidth="2" />
+                <circle cx="0" cy="0" r="11" fill="#0D0C11" stroke={c.trim} strokeWidth="2.5" />
+                <circle cx="0" cy="0" r="5" fill="#34D399" fillOpacity="0.6" />
+              </g>
+            </>
+          )}
+
+          {char.id === 'dm' && (
+            <>
+              <rect x="118" y="34" width="84" height="52" rx="4" fill="#121017" stroke={c.trim} strokeWidth="1.6" />
+              <ellipse cx="160" cy="86" rx="72" ry="14" fill="#121017" stroke={c.trim} strokeWidth="1.6" />
+              <rect x="118" y="73" width="84" height="8" fill="#8B1E24" />
+              <circle cx="181" cy="142" r="15" fill="rgba(200,160,85,0.16)" stroke="#E6C88A" strokeWidth="2" />
+              <path d="M196 142 Q215 178 196 222" fill="none" stroke="#E6C88A" strokeWidth="1.3" strokeDasharray="3 2" />
+              <g transform="translate(228, 235)">
+                <line x1="0" y1="16" x2="0" y2="105" stroke="#121017" strokeWidth="5.5" />
+                <circle cx="0" cy="8" r="13" fill="#4A0E17" stroke="#C8A055" strokeWidth="1.8" />
+                <circle cx="0" cy="8" r="5.5" fill="#8B1E24" />
+              </g>
+            </>
+          )}
+
+          {char.id === 'whitenight' && (
+            <>
+              <path d="M160 135 L202 150 L160 165 Z" fill="#EAE0CE" stroke="#94A3B8" strokeWidth="1.4" />
+              <g transform="translate(92, 245)">
+                <rect x="-14" y="0" width="28" height="38" rx="5" fill="rgba(56,189,248,0.22)" stroke="#94A3B8" strokeWidth="2.2" />
+                <circle cx="0" cy="20" r="8" fill="#38BDF8" />
+              </g>
+            </>
+          )}
+        </svg>
+      );
+    };
+
+    // ------------------------------------------------------------------------
+    // 3. 主應用程式 (App)
+    // ------------------------------------------------------------------------
+    function App() {
+      // 全站心眼透視 (表象 / 裡世界切換)
+      const [isClairvoyance, setIsClairvoyance] = useState(false);
+      // 通知橫幅
+      const [toastMsg, setToastMsg] = useState('');
+      // 02. 倫敦版圖選定區域
+      const [selectedLocId, setSelectedLocId] = useState('baker');
+      // 03. 立繪鑑賞室選定角色與反轉姿態
+      const [selectedCharId, setSelectedCharId] = useState('arthur');
+      const [isAlterPersona, setIsAlterPersona] = useState(false);
+      const [unlockedDiaries, setUnlockedDiaries] = useState({
+        arthur: [true, false, false],
+        emma: [true, false, false],
+        dm: [true, false, false],
+        whitenight: [true, false, false]
+      });
+      // 04. 案件故事進度與最終推理試煉彈窗
+      const [scrollProgress, setScrollProgress] = useState(0);
+      const [activeChapterIdx, setActiveChapterIdx] = useState(0);
+      const [trialModalOpen, setTrialModalOpen] = useState(false);
+      const [trialAnswer, setTrialAnswer] = useState(null);
+
+      const storySectionRef = useRef(null);
+      const fogCanvasRef = useRef(null);
+
+      const triggerToast = (msg) => setToastMsg(msg);
+
+      useEffect(() => {
+        if (!toastMsg) return;
+        const timer = setTimeout(() => setToastMsg(''), 3400);
+        return () => clearTimeout(timer);
+      }, [toastMsg]);
+
+      // 頁面滾動進度與故事章節感應
+      useEffect(() => {
+        const handleScroll = () => {
+          const total = document.documentElement.scrollHeight - window.innerHeight;
+          if (total > 0) {
+            setScrollProgress(Math.min(100, Math.max(0, (window.scrollY / total) * 100)));
+          }
+          if (storySectionRef.current) {
+            const rect = storySectionRef.current.getBoundingClientRect();
+            const triggerY = window.innerHeight * 0.55;
+            if (rect.top < triggerY && rect.bottom > 0) {
+              const ratio = Math.min(1, Math.max(0, (triggerY - rect.top) / rect.height));
+              const idx = Math.min(STORY_CHAPTERS.length - 1, Math.floor(ratio * STORY_CHAPTERS.length));
+              setActiveChapterIdx(idx);
+            }
+          }
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, []);
+
+      // 背景漂浮金色記憶塵埃與迷霧粒子 Canvas
+      useEffect(() => {
+        const canvas = fogCanvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animId;
+        let w = (canvas.width = window.innerWidth);
+        let h = (canvas.height = window.innerHeight);
+
+        const onResize = () => {
+          w = canvas.width = window.innerWidth;
+          h = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', onResize);
+
+        const particles = Array.from({ length: 55 }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: Math.random() * 2.2 + 0.6,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: -Math.random() * 0.45 - 0.12,
+          isGold: Math.random() > 0.35
+        }));
+
+        const render = () => {
+          ctx.clearRect(0, 0, w, h);
+          particles.forEach((p) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.y < -10) {
+              p.y = h + 10;
+              p.x = Math.random() * w;
+            }
+            if (p.x < -10) p.x = w + 10;
+            if (p.x > w + 10) p.x = -10;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = isClairvoyance
+              ? 'rgba(56, 189, 248, 0.38)'
+              : p.isGold
+              ? 'rgba(200, 160, 85, 0.38)'
+              : 'rgba(234, 224, 206, 0.18)';
+            ctx.fill();
+          });
+          animId = requestAnimationFrame(render);
+        };
+        render();
+
+        return () => {
+          cancelAnimationFrame(animId);
+          window.removeEventListener('resize', onResize);
+        };
+      }, [isClairvoyance]);
+
+      const scrollToSection = (id) => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      };
+
+      const currentLocation = useMemo(
+        () => LONDON_LOCATIONS.find((l) => l.id === selectedLocId) || LONDON_LOCATIONS[0],
+        [selectedLocId]
+      );
+
+      const currentCharacter = useMemo(
+        () => CHARACTERS.find((c) => c.id === selectedCharId) || CHARACTERS[0],
+        [selectedCharId]
+      );
+
+      const handleUnlockDiary = (charId, idx) => {
+        setUnlockedDiaries((prev) => {
+          const updated = [...prev[charId]];
+          if (!updated[idx]) {
+            updated[idx] = true;
+            triggerToast('已消耗記憶靈感碎片，成功破譯演繹日記！');
+          }
+          return { ...prev, [charId]: updated };
+        });
+      };
+
+      return (
+        <div
+          className={`min-h-screen relative transition-colors duration-700 selection:bg-[#8B1E24] selection:text-[#EAE0CE] ${
+            isClairvoyance ? 'bg-[#060B16] text-sky-100' : 'bg-[#0D0C11] text-[#EAE0CE]'
+          }`}
+        >
+          {/* 全域動態迷霧與金色塵埃畫布 */}
+          <canvas ref={fogCanvasRef} className="fixed inset-0 pointer-events-none z-0 opacity-85" />
+
+          {/* 燭光暗角氛圍遮罩 */}
+          <div
+            className="fixed inset-0 pointer-events-none z-30 transition-all duration-700"
+            style={{
+              background: isClairvoyance
+                ? 'radial-gradient(circle at 50% 45%, transparent 45%, rgba(2, 10, 24, 0.9) 100%)'
+                : 'radial-gradient(circle at 50% 45%, transparent 48%, rgba(5, 4, 8, 0.9) 100%)'
+            }}
+          />
+
+          {/* ================================================================ */}
+          {/* 1. 頂部固定導覽列 (火漆徽章 + 四大核心區塊跳轉 + 心眼透視開關)    */}
+          {/* ================================================================ */}
+          <header className="sticky top-0 z-40 bg-[#0D0C11]/92 backdrop-blur-md border-b border-[#C8A055]/35 shadow-2xl">
+            {/* 因果紅線滾動進度條 */}
+            <div className="h-[2px] w-full bg-zinc-900">
+              <div
+                className={`h-full transition-all duration-150 ${
+                  isClairvoyance ? 'bg-sky-400' : 'bg-gradient-to-r from-[#8B1E24] via-[#C8A055] to-[#8B1E24]'
+                }`}
+                style={{ width: `${scrollProgress}%` }}
+              />
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+              {/* 火漆徽章與遊戲名稱 */}
+              <button onClick={() => scrollToSection('hero')} className="flex items-center gap-3 text-left group">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B1E24] via-[#5c1116] to-[#2b0609] border-2 border-[#C8A055] shadow-[0_0_15px_rgba(139,30,36,0.7)] flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                  <span className="font-display font-black text-xs text-[#EAE0CE] tracking-tighter">IV</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-base sm:text-lg tracking-widest text-[#EAE0CE]">真理之下</span>
+                    <span className="hidden sm:inline-block text-[10px] font-mono tracking-widest px-1.5 py-0.5 rounded bg-[#8B1E24]/50 border border-[#C8A055]/50 text-[#C8A055]">
+                      1888
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-display tracking-[0.22em] text-[#C8A055]/85">BENEATH THE TRUTH</p>
+                </div>
+              </button>
+
+              {/* 四大核心區塊快速跳轉 */}
+              <nav className="hidden lg:flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-[#C8A055]/30">
+                {[
+                  { id: 'hero', label: '01. 霧都首頁' },
+                  { id: 'world-map', label: '02. 開放世界版圖' },
+                  { id: 'characters', label: '03. 關鍵立繪鑑賞室' },
+                  { id: 'story', label: '04. 案件故事卷宗' }
+                ].map((nav) => (
+                  <button
+                    key={nav.id}
+                    onClick={() => scrollToSection(nav.id)}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#EAE0CE]/80 hover:text-[#C8A055] hover:bg-[#8B1E24]/40 transition"
+                  >
+                    {nav.label}
+                  </button>
+                ))}
+              </nav>
+
+              {/* 心眼透視 (表象 / 裡世界切換) 全站濾鏡開關 */}
+              <button
+                onClick={() => {
+                  const next = !isClairvoyance;
+                  setIsClairvoyance(next);
+                  triggerToast(
+                    next
+                      ? '【心眼透視已開啟】全站切換至裡世界光譜，隱藏線索與禁忌批註已顯影！'
+                      : '【心眼透視已關閉】已返回 1888 維多利亞表象世界。'
+                  );
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all shadow-lg ${
+                  isClairvoyance
+                    ? 'bg-sky-950/90 border-sky-400 text-sky-200 shadow-sky-500/25'
+                    : 'bg-gradient-to-r from-[#8B1E24]/85 to-[#16141d] border-[#C8A055] text-[#EAE0CE] hover:brightness-110'
+                }`}
+              >
+                <Icon name={isClairvoyance ? 'Eye' : 'EyeOff'} className={`w-4 h-4 ${isClairvoyance ? 'text-sky-400 animate-pulse' : 'text-[#C8A055]'}`} />
+                <span>{isClairvoyance ? '心眼透視：裡世界' : '心眼透視：表象'}</span>
+              </button>
+            </div>
+
+            {/* 手機版快捷導覽列 */}
+            <div className="flex lg:hidden items-center justify-around border-t border-[#C8A055]/20 py-1.5 px-2 text-[11px] font-bold bg-black/70">
+              <button onClick={() => scrollToSection('hero')} className="text-[#C8A055] py-1">01.首頁</button>
+              <button onClick={() => scrollToSection('world-map')} className="text-[#EAE0CE]/80 py-1">02.倫敦版圖</button>
+              <button onClick={() => scrollToSection('characters')} className="text-[#EAE0CE]/80 py-1">03.立繪鑑賞</button>
+              <button onClick={() => scrollToSection('story')} className="text-[#EAE0CE]/80 py-1">04.案件卷宗</button>
+            </div>
+          </header>
+
+          {/* 全域浮動提示 */}
+          {toastMsg && (
+            <div className="fixed bottom-5 right-5 z-50 max-w-sm bg-[#14121B]/95 border-2 border-[#C8A055] text-[#EAE0CE] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#8B1E24] border border-[#C8A055] flex items-center justify-center text-xs font-black shrink-0">
+                !
+              </span>
+              <p className="text-xs leading-snug">{toastMsg}</p>
+            </div>
+          )}
+
+          {/* ================================================================ */}
+          {/* 2. 01. 首頁視覺區 (HERO SECTION)                                  */}
+          {/* ================================================================ */}
+          <section id="hero" className="relative z-10 min-h-[88vh] flex items-center justify-center px-4 sm:px-6 py-16 overflow-hidden border-b border-[#C8A055]/25">
+            {/* 背景旋轉維多利亞星象儀陣列 */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+              <svg viewBox="0 0 500 500" className="w-[620px] h-[620px] text-[#C8A055] animate-[spin_90s_linear_infinite]">
+                <circle cx="250" cy="250" r="235" fill="none" stroke="currentColor" strokeWidth="1.2" strokeDasharray="6 6" />
+                <circle cx="250" cy="250" r="195" fill="none" stroke="currentColor" strokeWidth="2" />
+                <polygon points="250,20 449,365 51,365" fill="none" stroke="currentColor" strokeWidth="1" />
+                <polygon points="250,480 449,135 51,135" fill="none" stroke="currentColor" strokeWidth="1" />
+              </svg>
+            </div>
+
+            <div className="max-w-5xl mx-auto text-center space-y-7 relative z-10">
+              {/* 頂部雕花徽記 */}
+              <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#8B1E24]/45 border border-[#C8A055]/60 text-[#C8A055] text-xs font-display tracking-[0.22em]">
+                <Icon name="Sparkles" className="w-3.5 h-3.5" />
+                <span>1888 VICTORIAN GOTHIC DETECTIVE OPEN WORLD</span>
+              </div>
+
+              {/* 維多利亞雕花主標題 */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-4 text-[#C8A055]/70">
+                  <span className="h-[1px] w-12 sm:w-24 bg-gradient-to-r from-transparent to-[#C8A055]" />
+                  <span className="text-xs font-display tracking-[0.4em]">CASE ARCHIVE IV</span>
+                  <span className="h-[1px] w-12 sm:w-24 bg-gradient-to-l from-transparent to-[#C8A055]" />
+                </div>
+                <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-[0.16em] text-transparent bg-clip-text bg-gradient-to-b from-[#EAE0CE] via-[#d8b878] to-[#9c7634] drop-shadow-[0_8px_28px_rgba(200,160,85,0.35)]">
+                  真理之下
+                </h1>
+                <p className="text-base sm:text-2xl font-display font-bold tracking-[0.35em] text-[#C8A055] uppercase">
+                  BENEATH THE TRUTH
+                </p>
+              </div>
+
+              {/* 核心設定簡介（支援表象 / 裡世界切換） */}
+              <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-black/55 backdrop-blur-sm border border-[#C8A055]/35 shadow-2xl relative">
+                {/* 四角黃銅雕花裝飾點 */}
+                <span className="absolute top-2 left-2 w-2 h-2 border-t border-l border-[#C8A055]" />
+                <span className="absolute top-2 right-2 w-2 h-2 border-t border-r border-[#C8A055]" />
+                <span className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-[#C8A055]" />
+                <span className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-[#C8A055]" />
+                <p className="text-sm sm:text-base leading-relaxed text-[#EAE0CE]/90">
+                  {isClairvoyance
+                    ? '「當午夜十二點的鐘聲吞沒泰晤士河，倫敦的紳士淑女皆化作縫著紐扣的人偶。唯有舉起火漆印章的失憶偵探，能切開這場百年騙局的因果紅線。」'
+                    : '1888 年維多利亞時期，濃霧籠罩的倫敦接連發生「七日無面失蹤案」。你將扮演失憶的私家偵探「推理先生」，自由探索開放式霧都地標、調閱關鍵人偶立繪卷宗，在表象與裡世界之間追尋被封印的真相。'}
+                </p>
+              </div>
+
+              {/* 進入探索按鈕群 */}
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+                <button
+                  onClick={() => scrollToSection('world-map')}
+                  className="flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-[#8B1E24] via-[#6e151a] to-[#470b0f] hover:brightness-110 text-[#EAE0CE] font-black text-sm tracking-wider border-2 border-[#C8A055] shadow-[0_0_30px_rgba(139,30,36,0.65)] transition transform hover:-translate-y-0.5"
+                >
+                  <Icon name="Compass" className="w-4 h-4 text-[#C8A055]" />
+                  <span>進入探索霧都倫敦</span>
+                </button>
+
+                <button
+                  onClick={() => scrollToSection('characters')}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#15131C]/90 hover:bg-[#1f1c29] text-[#C8A055] font-bold text-sm border border-[#C8A055]/50 transition"
+                >
+                  <Icon name="Users" className="w-4 h-4" />
+                  <span>鑑賞關鍵立繪角色</span>
+                </button>
+              </div>
+
+              <div className="pt-6 animate-bounce opacity-65">
+                <Icon name="ChevronDown" className="w-6 h-6 mx-auto text-[#C8A055]" />
+              </div>
+            </div>
+          </section>
+
+          {/* ================================================================ */}
+          {/* 3. 02. 開放式世界倫敦版圖 (WORLD MAP)                             */}
+          {/* ================================================================ */}
+          <section id="world-map" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 space-y-12 border-b border-[#C8A055]/25">
+            <div className="text-center space-y-2">
+              <span className="text-xs font-display tracking-[0.28em] text-[#C8A055]">02 // OPEN WORLD LONDON ARCHIVE</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-[#EAE0CE]">開放式世界・1888 霧都倫敦版圖</h2>
+              <p className="text-xs sm:text-sm text-[#EAE0CE]/70 max-w-2xl mx-auto">
+                點擊地圖上的五大火漆地標，檢視羊皮紙調查報告；切換右上角「心眼透視」可窺見每個區域在裡世界中的真實異變。
+              </p>
+            </div>
+
+            {/* 三大世界觀核心支柱卡片 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {WORLD_OVERVIEW_CARDS.map((card) => (
+                <div
+                  key={card.code}
+                  className={`rounded-2xl p-6 border transition-all duration-500 ${
+                    isClairvoyance
+                      ? 'bg-sky-950/35 border-sky-400/50 shadow-[0_0_25px_rgba(56,189,248,0.12)]'
+                      : 'bg-[#14121B]/90 border-[#C8A055]/35 hover:border-[#C8A055]/75 shadow-xl'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-mono font-bold text-[#C8A055]">{card.code}</span>
+                    <Icon name={card.icon} className={`w-4 h-4 ${isClairvoyance ? 'text-sky-400' : 'text-[#C8A055]'}`} />
+                  </div>
+                  <h3 className="text-lg font-black text-[#EAE0CE] mb-2">{card.title}</h3>
+                  <p className="text-xs sm:text-sm text-[#EAE0CE]/80 leading-relaxed">
+                    {isClairvoyance ? card.alter : card.normal}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* 互動倫敦地圖與右側羊皮紙調查報告 */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              {/* 左側 7 欄：維多利亞霧都倫敦 SVG 地圖 */}
+              <div className="lg:col-span-7 relative rounded-2xl overflow-hidden border-2 border-[#C8A055]/60 bg-[#15121E] shadow-2xl aspect-[4/3]">
+                <svg viewBox="0 0 800 600" className="w-full h-full select-none">
+                  <defs>
+                    <radialGradient id="londonFogGrad" cx="50%" cy="50%" r="55%">
+                      <stop offset="0%" stopColor="#262033" />
+                      <stop offset="100%" stopColor="#0D0C11" />
+                    </radialGradient>
+                  </defs>
+                  <rect width="800" height="600" fill="url(#londonFogGrad)" />
+
+                  {/* 古董航海羅盤與經緯線 */}
+                  <g stroke="#C8A055" strokeOpacity="0.2" strokeWidth="1" fill="none">
+                    <circle cx="400" cy="300" r="230" strokeDasharray="6 6" />
+                    <circle cx="400" cy="300" r="145" strokeDasharray="2 4" />
+                    <line x1="0" y1="300" x2="800" y2="300" />
+                    <line x1="400" y1="0" x2="400" y2="600" />
+                    <polygon points="400,45 412,300 400,555 388,300" strokeOpacity="0.12" />
+                    <polygon points="145,300 400,288 655,300 400,312" strokeOpacity="0.12" />
+                  </g>
+
+                  {/* 泰晤士河 River Thames */}
+                  <path
+                    d="M -20 385 Q 190 340, 330 405 T 640 365 T 830 420"
+                    fill="none"
+                    stroke="#0A1626"
+                    strokeWidth="46"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M -20 385 Q 190 340, 330 405 T 640 365 T 830 420"
+                    fill="none"
+                    stroke={isClairvoyance ? '#38BDF8' : '#C8A055'}
+                    strokeOpacity="0.28"
+                    strokeWidth="48"
+                    strokeDasharray="10 6"
+                  />
+                  <text x="185" y="392" fill="#C8A055" opacity="0.55" fontSize="13" fontFamily="monospace" letterSpacing="4">
+                    RIVER THAMES // 1888
+                  </text>
+
+                  {/* 因果紅線連結五大調查地標 */}
+                  <polyline
+                    points="192,168 384,132 600,204 520,444 216,432 192,168"
+                    fill="none"
+                    stroke={isClairvoyance ? '#38BDF8' : '#8B1E24'}
+                    strokeWidth="2.5"
+                    strokeDasharray="6 5"
+                  />
+                </svg>
+
+                {/* 五大可點擊火漆地標 */}
+                <div className="absolute inset-0">
+                  {LONDON_LOCATIONS.map((loc) => {
+                    const active = loc.id === selectedLocId;
+                    return (
+                      <button
+                        key={loc.id}
+                        onClick={() => setSelectedLocId(loc.id)}
+                        style={{ left: `${loc.coords.x}%`, top: `${loc.coords.y}%` }}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group z-10 focus:outline-none"
+                      >
+                        <span
+                          className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            active
+                              ? 'scale-125 bg-[#8B1E24] border-[#EAE0CE] shadow-[0_0_22px_rgba(200,160,85,0.9)]'
+                              : 'bg-[#4d1014]/90 border-[#C8A055]/75 group-hover:scale-110'
+                          }`}
+                        >
+                          <Icon name="MapPin" className="w-4 h-4 text-[#EAE0CE]" />
+                        </span>
+                        <span
+                          className={`mt-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold whitespace-nowrap border shadow-md transition-colors ${
+                            active
+                              ? 'bg-[#8B1E24] text-[#EAE0CE] border-[#C8A055]'
+                              : 'bg-[#0D0C11]/90 text-[#C8A055] border-[#C8A055]/40'
+                          }`}
+                        >
+                          {loc.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 右側 5 欄：羊皮紙調查報告 */}
+              <div className="lg:col-span-5 rounded-2xl p-6 sm:p-7 parchment-texture text-[#1A1721] border-2 border-[#C8A055] shadow-2xl flex flex-col justify-between relative">
+                {/* 右上角火漆章 */}
+                <div className="hidden sm:flex w-12 h-12 rounded-full bg-gradient-to-br from-[#8B1E24] to-[#420a0d] border-2 border-[#C8A055] shadow-md items-center justify-center absolute top-5 right-5 rotate-12 text-[#EAE0CE] font-display font-black text-xs select-none">
+                  IV
+                </div>
+
+                <div className="space-y-4">
+                  <div className="border-b-2 border-[#1A1721]/20 pb-3 pr-14">
+                    <span className="text-[11px] font-mono font-bold text-[#8B1E24]">{currentLocation.year}</span>
+                    <h3 className="text-2xl font-black text-[#0D0C11] mt-0.5">{currentLocation.name}</h3>
+                    <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded bg-[#0D0C11] text-[#C8A055] text-[11px] font-bold">
+                      危險等級：{currentLocation.danger}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-black text-[#8B1E24] tracking-wider mb-1">◆ 區域調查檔案 / FIELD REPORT</h4>
+                    <p className="text-xs sm:text-sm text-[#1A1721]/90 leading-relaxed">{currentLocation.normalSummary}</p>
+                  </div>
+
+                  {/* 心眼透視裡世界異變框 */}
+                  <div
+                    className={`p-3.5 rounded-xl border transition-all duration-300 ${
+                      isClairvoyance
+                        ? 'bg-[#081224] text-sky-300 border-sky-400 shadow-inner'
+                        : 'bg-[#0D0C11]/10 text-[#1A1721]/75 border-[#1A1721]/25'
+                    }`}
+                  >
+                    <p className="text-xs leading-relaxed font-semibold">
+                      {isClairvoyance
+                        ? currentLocation.alterSummary
+                        : '【提示】點擊頂部「心眼透視」按鈕，可顯影此地標在裡世界中的真實異變狀態。'}
+                    </p>
+                  </div>
+
+                  <div className="bg-[#8B1E24]/12 p-3.5 rounded-xl border border-[#8B1E24]/35">
+                    <p className="text-xs font-bold text-[#591115]">🔍 現場關鍵線索：{currentLocation.clue}</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-[#1A1721]/20 flex items-center justify-between text-xs">
+                  <span className="font-display font-bold text-[#1A1721]/65">{currentLocation.en}</span>
+                  <button
+                    onClick={() => scrollToSection('characters')}
+                    className="font-black text-[#8B1E24] hover:underline"
+                  >
+                    檢視相關角色卷宗 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ================================================================ */}
+          {/* 4. 03. 關鍵立繪角色鑑賞室 (CHARACTER GALLERY)                     */}
+          {/* ================================================================ */}
+          <section id="characters" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 space-y-10 border-b border-[#C8A055]/25">
+            <div className="text-center space-y-2">
+              <span className="text-xs font-display tracking-[0.28em] text-[#C8A055]">03 // KEY CHARACTER PORTRAIT GALLERY</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-[#EAE0CE]">關鍵立繪角色鑑賞室</h2>
+              <p className="text-xs sm:text-sm text-[#EAE0CE]/70 max-w-2xl mx-auto">
+                融合維多利亞哥德服飾與紐扣縫線人偶美學，支持「表象姿態 / 里世界反轉立繪」即時切換與三段式演繹日記破譯。
+              </p>
+            </div>
+
+            {/* 四位核心角色選擇卡 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {CHARACTERS.map((char) => {
+                const active = char.id === selectedCharId;
+                return (
+                  <button
+                    key={char.id}
+                    onClick={() => {
+                      setSelectedCharId(char.id);
+                      setIsAlterPersona(false);
+                    }}
+                    className={`text-left p-4 rounded-2xl border transition-all duration-300 ${
+                      active
+                        ? 'bg-gradient-to-br from-[#8B1E24]/70 to-[#14121B] border-[#C8A055] shadow-[0_0_25px_rgba(200,160,85,0.28)] scale-[1.02]'
+                        : 'bg-[#14121B]/85 border-[#C8A055]/25 hover:border-[#C8A055]/65 opacity-80 hover:opacity-100'
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono text-[#C8A055] block">{char.code.split('//')[0]}</span>
+                    <span className="text-xs font-bold text-[#C8A055]">{char.roleTag}</span>
+                    <h3 className="text-lg font-black text-[#EAE0CE] mt-0.5">{char.name}</h3>
+                    <p className="text-[11px] text-[#EAE0CE]/65 truncate mt-0.5">{char.title}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 角色鑑賞主舞台：左側立繪 + 右側羊皮紙檔案 */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              {/* 左側 5 欄：雙形態人偶 SVG 立繪展示櫃 */}
+              <div className="lg:col-span-5 rounded-2xl p-6 bg-gradient-to-b from-[#1A1624] to-[#0D0C11] border-2 border-[#C8A055]/50 shadow-2xl flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between gap-2 z-10">
+                  <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-[#8B1E24]/60 border border-[#C8A055]/50 text-[#EAE0CE]">
+                    {isAlterPersona ? `${currentCharacter.code} [ALTER]` : currentCharacter.code}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const next = !isAlterPersona;
+                      setIsAlterPersona(next);
+                      triggerToast(
+                        next
+                          ? `已揭開【${currentCharacter.name}】的里世界反轉立繪！`
+                          : `已切回【${currentCharacter.name}】的表象調查員姿態。`
+                      );
+                    }}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition shadow ${
+                      isAlterPersona
+                        ? 'bg-[#8B1E24] text-[#EAE0CE] border-[#C8A055]'
+                        : 'bg-black/80 hover:bg-[#8B1E24]/80 text-[#C8A055] border-[#C8A055]/60'
+                    }`}
+                  >
+                    <Icon name="RotateCcw" className="w-3.5 h-3.5" />
+                    <span>{isAlterPersona ? '切回表象姿態' : '里世界反轉立繪'}</span>
+                  </button>
+                </div>
+
+                {/* 人偶立繪 SVG */}
+                <div className="my-4 z-10 transition-transform duration-500 hover:scale-[1.03]">
+                  <GothicDollPortrait char={currentCharacter} isAlter={isAlterPersona} />
+                </div>
+
+                {/* 角色名牌與格言 */}
+                <div className="z-10 text-center bg-black/75 border border-[#C8A055]/35 rounded-xl p-4">
+                  <p className="text-xs font-bold tracking-widest text-[#C8A055]">{currentCharacter.roleTag}</p>
+                  <h3 className="text-2xl font-black text-[#EAE0CE]">{currentCharacter.name}</h3>
+                  <p className="text-[11px] font-display tracking-widest text-[#EAE0CE]/55 mb-2">{currentCharacter.enName}</p>
+                  <p className="text-xs italic text-[#EAE0CE]/90 border-t border-[#C8A055]/25 pt-2">
+                    {isAlterPersona ? currentCharacter.quoteAlter : currentCharacter.quoteNormal}
+                  </p>
+                </div>
+              </div>
+
+              {/* 右側 7 欄：羊皮紙機密卷宗、五維能力指標、專屬奇珍與三段式演繹日記 */}
+              <div className="lg:col-span-7 rounded-2xl p-6 sm:p-7 parchment-texture text-[#1A1721] border-2 border-[#C8A055] shadow-2xl space-y-5 relative">
+                {/* 火漆印章 */}
+                <div className="hidden sm:flex w-14 h-14 rounded-full bg-gradient-to-br from-[#8B1E24] to-[#3d080b] border-2 border-[#C8A055] shadow-lg flex-col items-center justify-center absolute top-5 right-6 rotate-12 text-[#EAE0CE] select-none">
+                  <span className="text-[9px] font-display font-bold">TRUTH</span>
+                  <span className="text-xs font-black">1888</span>
+                </div>
+
+                <div className="border-b-2 border-[#1A1721]/20 pb-3 pr-16">
+                  <span className="px-2.5 py-0.5 rounded bg-[#8B1E24] text-[#EAE0CE] text-[11px] font-bold">受訪者機密卷宗</span>
+                  <h3 className="text-2xl font-black text-[#0D0C11] mt-1">{currentCharacter.title}</h3>
+                  <p className="text-xs text-[#1A1721]/85 mt-1 flex items-center gap-1.5">
+                    <Icon name="Key" className="w-3.5 h-3.5 text-[#8B1E24]" />
+                    <span>專屬奇珍信物：<strong>{currentCharacter.relic}</strong></span>
+                  </p>
+                </div>
+
+                {/* 人物背景與心理側寫 */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-black text-[#8B1E24] tracking-wider">◆ 人物背景與心理側寫 / BIOGRAPHY</h4>
+                  <p className="text-xs sm:text-sm text-[#1A1721]/90 leading-relaxed">{currentCharacter.bioNormal}</p>
+                  {(isClairvoyance || isAlterPersona) && (
+                    <div className="p-3.5 rounded-xl bg-[#081224] text-sky-300 border border-sky-400/70 text-xs leading-relaxed shadow-inner">
+                      {currentCharacter.bioAlter}
+                    </div>
+                  )}
+                </div>
+
+                {/* 五維能力指標 */}
+                <div className="bg-[#0D0C11]/8 p-4 rounded-xl border border-[#1A1721]/20 space-y-2">
+                  <h4 className="text-xs font-black text-[#0D0C11] tracking-wider mb-2">◆ 五維偵探演繹指標 / ATTRIBUTES</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs">
+                    {[
+                      { label: '邏輯演繹 Deduction', val: currentCharacter.stats.deduction },
+                      { label: '心眼靈視 Perception', val: currentCharacter.stats.perception },
+                      { label: '精神理智 Sanity', val: currentCharacter.stats.sanity },
+                      { label: '潛行追蹤 Stealth', val: currentCharacter.stats.stealth },
+                      { label: '煉金秘術 Alchemy', val: currentCharacter.stats.alchemy }
+                    ].map((st) => (
+                      <div key={st.label}>
+                        <div className="flex justify-between font-bold text-[#1A1721] mb-0.5">
+                          <span>{st.label}</span>
+                          <span>{st.val}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[#1A1721]/20 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#8B1E24] to-[#C8A055] rounded-full transition-all duration-500"
+                            style={{ width: `${st.val}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 可點擊破譯的三段式演繹日記 */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-black text-[#8B1E24] tracking-wider">
+                    ◆ 三段式演繹日記 / DEDUCTION DIARY（點擊破譯封印碎片）
+                  </h4>
+                  <div className="space-y-2">
+                    {currentCharacter.diaries.map((d, idx) => {
+                      const unlocked = unlockedDiaries[currentCharacter.id][idx];
+                      return (
+                        <div
+                          key={d.step}
+                          onClick={() => handleUnlockDiary(currentCharacter.id, idx)}
+                          className={`cursor-pointer p-3 rounded-xl border transition ${
+                            unlocked
+                              ? 'bg-white/80 border-[#1A1721]/30 shadow-sm'
+                              : 'bg-[#0D0C11]/10 border-dashed border-[#8B1E24]/60 hover:bg-[#8B1E24]/10'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs font-black">
+                            <span className={unlocked ? 'text-[#8B1E24]' : 'text-[#1A1721]/75'}>
+                              {unlocked ? '📖' : '🔒'} {d.step}：{d.title}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] ${
+                                unlocked ? 'bg-[#1A1721]/15 text-[#1A1721]' : 'bg-[#8B1E24] text-[#EAE0CE]'
+                              }`}
+                            >
+                              {unlocked ? '已破譯' : '點擊破譯'}
+                            </span>
+                          </div>
+                          {unlocked && <p className="text-xs text-[#1A1721]/90 mt-1.5 leading-relaxed">{d.text}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ================================================================ */}
+          {/* 5. 04. 案件故事卷宗與終局試煉 (STORY & FINALE)                    */}
+          {/* ================================================================ */}
+          <section
+            id="story"
+            ref={storySectionRef}
+            className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-20 space-y-16"
+          >
+            <div className="text-center space-y-2">
+              <span className="text-xs font-display tracking-[0.28em] text-[#C8A055]">04 // SEVEN-DAY FACELESS CASE CHRONICLES</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-[#EAE0CE]">七日無面失蹤案・案件故事卷宗</h2>
+              <p className="text-xs sm:text-sm text-[#EAE0CE]/70 max-w-2xl mx-auto">
+                沿著因果紅線回溯 1888 年 11 月的七日謎團；開啟「心眼透視」可顯影隱藏在字裡行間的裡世界預言。
+              </p>
+            </div>
+
+            {/* 四大章節因果紅線時間軸 */}
+            <div className="relative pl-6 sm:pl-12 space-y-10">
+              {/* 垂直導線與動態進度紅線 */}
+              <div className="absolute left-2.5 sm:left-5 top-2 bottom-2 w-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className={`w-full transition-all duration-500 ${
+                    isClairvoyance ? 'bg-sky-400' : 'bg-gradient-to-b from-[#8B1E24] via-[#C8A055] to-[#8B1E24]'
+                  }`}
+                  style={{ height: `${((activeChapterIdx + 1) / STORY_CHAPTERS.length) * 100}%` }}
+                />
+              </div>
+
+              {STORY_CHAPTERS.map((chap, idx) => {
+                const isReached = idx <= activeChapterIdx;
+                return (
+                  <div
+                    key={chap.num}
+                    onClick={() => setActiveChapterIdx(idx)}
+                    className={`cursor-pointer relative rounded-2xl p-6 sm:p-7 border transition-all duration-500 ${
+                      isReached
+                        ? 'bg-[#15131E]/95 border-[#C8A055]/65 shadow-[0_12px_35px_rgba(0,0,0,0.8)] opacity-100'
+                        : 'bg-[#110F17]/75 border-zinc-800 opacity-70 hover:opacity-95'
+                    }`}
+                  >
+                    {/* 火漆時間節點 */}
+                    <span
+                      className={`absolute -left-[25px] sm:-left-[39px] top-7 w-5 h-5 rounded-full border-2 transition-all ${
+                        isReached
+                          ? 'bg-[#8B1E24] border-[#C8A055] scale-125 shadow-[0_0_15px_rgba(200,160,85,0.85)]'
+                          : 'bg-zinc-900 border-zinc-600'
+                      }`}
+                    />
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded bg-[#8B1E24]/60 border border-[#C8A055]/50 text-[#C8A055]">
+                        {chap.num} // {chap.date}
+                      </span>
+                      <span className="text-xs text-[#EAE0CE]/65 flex items-center gap-1">
+                        <Icon name="MapPin" className="w-3.5 h-3.5 text-[#C8A055]" />
+                        {chap.location}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xl sm:text-2xl font-black text-[#EAE0CE] mb-3">{chap.title}</h3>
+                    <p className="text-xs sm:text-sm text-[#EAE0CE]/85 leading-relaxed">{chap.normalText}</p>
+
+                    {isClairvoyance && (
+                      <div className="mt-3.5 p-3.5 rounded-xl bg-sky-950/75 border border-sky-400/65 text-xs text-sky-200 leading-relaxed">
+                        {chap.alterText}
+                      </div>
+                    )}
+
+                    <div className="mt-4 pt-3 border-t border-[#C8A055]/25 flex items-center justify-between text-xs font-bold text-[#C8A055]">
+                      <span>{chap.clueTag}</span>
+                      <span>{isReached ? '● 紅線已連結' : '點擊提前檢視'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 頁尾互動式「最終推理試煉」召喚卡片 */}
+            <div className="rounded-3xl p-8 sm:p-12 bg-gradient-to-b from-[#1B1422] to-[#0D0C11] border-2 border-[#C8A055]/60 shadow-2xl text-center space-y-6 relative overflow-hidden">
+              <div className="w-16 h-16 rounded-full mx-auto bg-gradient-to-br from-[#8B1E24] to-[#3d080b] border-2 border-[#C8A055] shadow-xl flex items-center justify-center font-display font-black text-[#EAE0CE] text-lg">
+                IV
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-display tracking-[0.3em] text-[#C8A055]">FINAL DEDUCTION TRIAL</span>
+                <h3 className="text-2xl sm:text-4xl font-black text-[#EAE0CE]">
+                  「當所有表象皆為謊言，唯有人偶的縫線記得真實。」
+                </h3>
+              </div>
+
+              <p className="max-w-2xl mx-auto text-xs sm:text-sm text-[#EAE0CE]/80 leading-relaxed">
+                你已走遍霧都倫敦五大調查區域，並翻閱了四位關鍵角色的演繹卷宗。現在，舉起你的火漆印章，接受 D.M 伯爵的最終推理試煉！
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+                <button
+                  onClick={() => {
+                    setTrialAnswer(null);
+                    setTrialModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-7 py-3.5 rounded-xl bg-gradient-to-r from-[#8B1E24] to-[#591115] hover:brightness-110 text-[#EAE0CE] font-black text-sm border-2 border-[#C8A055] shadow-[0_0_25px_rgba(139,30,36,0.7)] transition"
+                >
+                  <Icon name="Award" className="w-4 h-4 text-[#C8A055]" />
+                  <span>開啟最終推理試煉</span>
+                </button>
+
+                <button
+                  onClick={() => scrollToSection('hero')}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-black/80 hover:bg-zinc-900 text-[#C8A055] font-bold text-sm border border-[#C8A055]/45 transition"
+                >
+                  <Icon name="RotateCcw" className="w-4 h-4" />
+                  <span>返回霧都起點</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 維多利亞報紙頁尾版權欄 */}
+            <footer className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-[#EAE0CE]/60 border-t border-[#C8A055]/25 pt-8">
+              <div>
+                <h4 className="font-black text-[#C8A055] mb-1">《真理之下 BENEATH THE TRUTH》</h4>
+                <p>1888 維多利亞哥德懸疑偵探開放式世界官方概念網站。</p>
+              </div>
+              <div>
+                <h4 className="font-black text-[#C8A055] mb-1">貝克街 221B 調查局</h4>
+                <p>雙重世界心眼透視系統・維多利亞人偶立繪鑑賞室・七日案件卷宗。</p>
+              </div>
+              <div className="md:text-right">
+                <h4 className="font-black text-[#C8A055] mb-1">CASE ARCHIVE NO. IV-1888</h4>
+                <p>© 1888-2026 BENEATH THE TRUTH. ALL RIGHTS RESERVED.</p>
+              </div>
+            </footer>
+          </section>
+
+          {/* ================================================================ */}
+          {/* 最終推理試煉解謎彈窗 (Modal)                                      */}
+          {/* ================================================================ */}
+          {trialModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+              <div className="max-w-lg w-full rounded-2xl p-6 sm:p-7 parchment-texture text-[#1A1721] border-2 border-[#C8A055] shadow-2xl relative space-y-4">
+                <button
+                  onClick={() => setTrialModalOpen(false)}
+                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1A1721]/10 hover:bg-[#8B1E24] hover:text-[#EAE0CE] flex items-center justify-center transition"
+                >
+                  <Icon name="X" className="w-4 h-4" />
+                </button>
+
+                <span className="text-[11px] font-display font-bold text-[#8B1E24]">FINAL DEDUCTION TRIAL // 1888</span>
+                <h3 className="text-2xl font-black text-[#0D0C11]">最終推理試煉：誰是第零號人偶？</h3>
+                <p className="text-xs sm:text-sm text-[#1A1721]/90 leading-relaxed">
+                  根據你在霧都倫敦蒐集的所有卷宗與心眼透視線索，火漆邀請函上「編號 NO.00」的最初人偶實驗體究竟是誰？
+                </p>
+
+                <div className="space-y-2.5 pt-1">
+                  {[
+                    { id: 'a', text: 'A. 幕後贊助人 D.M 伯爵本人', correct: false },
+                    { id: 'b', text: 'B. 失憶的私家偵探「推理先生」亞瑟·柯林斯', correct: true },
+                    { id: 'c', text: 'C. 黑水河鐘樓的守望者白夜', correct: false }
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setTrialAnswer(opt)}
+                      className="w-full text-left p-3.5 rounded-xl border border-[#1A1721]/30 bg-white/80 hover:bg-[#8B1E24] hover:text-[#EAE0CE] hover:border-[#C8A055] text-xs sm:text-sm font-bold transition"
+                    >
+                      {opt.text}
+                    </button>
+                  ))}
+                </div>
+
+                {trialAnswer && (
+                  <div
+                    className={`p-4 rounded-xl border text-xs leading-relaxed ${
+                      trialAnswer.correct
+                        ? 'bg-emerald-950 text-emerald-200 border-emerald-500'
+                        : 'bg-[#470b0f] text-[#EAE0CE] border-[#C8A055]'
+                    }`}
+                  >
+                    {trialAnswer.correct ? (
+                      <div className="flex items-start gap-2.5">
+                        <Icon name="CheckCircle2" className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block text-sm text-emerald-300 mb-1">【火漆裁決成立！真相大白】</strong>
+                          你已成功連通所有因果紅線！亞瑟·柯林斯正是親手設計劇場並將自己改造成第零號人偶的「最初偵探」。歡迎正式踏入《真理之下》的完整冒險！
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2.5">
+                        <Icon name="AlertTriangle" className="w-5 h-5 text-[#C8A055] shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block text-sm text-[#C8A055] mb-1">【紅線出現矛盾】</strong>
+                          請開啟「心眼透視」或回顧「推理先生」大衣內襯的「NO.00」標籤，再次嘗試推論！
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
